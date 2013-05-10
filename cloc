@@ -2235,6 +2235,53 @@ sub output_header   {                        # {{{1
     print "<- output_header\n" if $opt_v > 2;
     return @R;
 } # 1}}}
+sub output_cocomo {
+    my $total_sloc = shift;
+
+    my $effort_factor =  2.40;
+    my $effort_exponent =  1.05;
+    my $effort_estimation_message = "Basic COCOMO model,";
+
+    my $schedule_factor =  2.5;
+    my $schedule_exponent =  0.38;
+    my $schedule_estimation_message = "Basic COCOMO model,";
+
+    # Average Salary / year.
+    # Source: ComputerWorld, Sep. 4, 2000 Salary Survey,
+    # average (U.S.) programmer/analyst salary.
+
+    my $person_cost = 56286.;
+
+    # Overhead; the person cost is multiplied by this value to determine
+    # true annual costs.
+
+    my $overhead = 2.4;
+
+    my $grand_total_effort = ( ($effort_factor*(($total_sloc/1000.0)**$effort_exponent)));
+    my $grand_schedule = ($schedule_factor*($grand_total_effort**$schedule_exponent));
+
+    my @R = ();
+
+    push @R, sprintf "Total Physical Source Lines of Code (SLOC)                = %s\n", $total_sloc;
+    push @R, sprintf "Development Effort Estimate, Person-Years (Person-Months) = %.2f (%.2f)", $grand_total_effort/12.0, $grand_total_effort;
+    push @R, sprintf " (%s Person-Months = $effort_factor * (KSLOC**$effort_exponent))\n", $effort_estimation_message;
+    push @R, sprintf "Schedule Estimate, Years (Months)                         = %.2f (%.2f)", $grand_schedule/12.0, $grand_schedule;
+    push @R, sprintf " (%s Months = $schedule_factor * (person-months**$schedule_exponent))\n", $schedule_estimation_message;
+
+    # Don't show this if there are multiple programs, because the computation
+    # is essentially meaningless: after the "smaller" projects have completed,
+    # the longest one would keep going:
+    if ($grand_schedule > 0.0) {
+      push @R, sprintf "Estimated Average Number of Developers (Effort/Schedule)  = %.2f\n", ($grand_total_effort / $grand_schedule);
+    }
+
+    my $value = ($grand_total_effort / 12.0) * $person_cost * $overhead;
+    push @R, sprintf "Total Estimated Cost to Develop                           = \$ %d", $value;
+    push @R, sprintf " (average salary = \$%d/year, overhead = %0.2f).\n", $person_cost, $overhead;
+
+    return @R;
+}
+
 sub generate_report {                        # {{{1
     # returns an array of lines containing the results
     my ($version    , # in
@@ -2556,6 +2603,9 @@ sub generate_report {                        # {{{1
         push @results, $hyphen_line if $sum_files > 1 or $opt_sum_one;
         push @results, $data_line   if $sum_files > 1 or $opt_sum_one;
         push @results, $hyphen_line;
+
+        push @results, "";
+        push @results, output_cocomo($sum_code);
     }
     write_xsl_file() if $opt_xsl and $opt_xsl eq $CLOC_XSL;
     print "<- generate_report\n" if $opt_v > 2;
